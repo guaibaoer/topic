@@ -52,14 +52,14 @@ void Trainer::Train() {
 
 // -------------------------------------------------------------------------- //
 
-void Trainer1::ReadData(std::string data_file) {
+void Trainer1::ReadData(std::string data_file) { // Note on Datasets Format 
   size_t num_token = 0;
   FILE *data_fp = fopen(data_file.c_str(), "r"); CHECK_NOTNULL(data_fp);
   char *line = NULL; size_t num_byte;
-  while (getline(&line, &num_byte, data_fp) != -1) {
+  while (getline(&line, &num_byte, data_fp) != -1) { // Process All Lines (All docs) 
     Sample doc;
     char *ptr = line, *end = line + strlen(line);
-    while (ptr < end) {
+    while (ptr < end) { // Process One Line (One doc) 
       char *colon = strchr(ptr, ':'); // at colon
       ptr = colon; while (*ptr != ' ') --ptr; // ptr at space before colon
       int word_id = dict_.insert_word(std::string(ptr+1, colon));
@@ -260,12 +260,12 @@ void Trainer1::PrintPerplexity() {
 
   // Cache phi
   std::vector< std::vector<double>> phi;
-  for (const auto& word : stat_) {
-    std::vector<double> phi_w(FLAGS_num_topic, .0);
-    for (const auto& pair : word.item_)
-      phi_w[pair.top_] = pair.cnt_;
-    for (int k = 0; k < FLAGS_num_topic; ++k)
-      phi_w[k] = (phi_w[k] + FLAGS_beta) / (summary_[k] + beta_sum);
+  for (const auto& word : stat_) { // V
+    std::vector<double> phi_w(FLAGS_num_topic, .0);// T * V
+    for (const auto& pair : word.item_) //  non-zero N_wt
+      phi_w[pair.top_] = pair.cnt_; // N_wt
+    for (int k = 0; k < FLAGS_num_topic; ++k) // T
+      phi_w[k] = (phi_w[k] + FLAGS_beta) / (summary_[k] + beta_sum); // N_wt + beta / N_k + V*beta
     phi.emplace_back(phi_w);
   } // end of each word
 
@@ -273,25 +273,25 @@ void Trainer1::PrintPerplexity() {
   for (auto& doc : test_) {
     // Initialize to most probable topic assignments
     doc.assignment_.clear();
-    for (const auto word_id : doc.token_) {
-      int most_probable_topic = (stat_[word_id].item_.empty())
-                                ? (_unif01(_rng) * FLAGS_num_topic) // OOV
+    for (const auto word_id : doc.token_) { // w in test text
+      int most_probable_topic = (stat_[word_id].item_.empty()) // assignment of w
+                                ? (_unif01(_rng) * FLAGS_num_topic) // OOV // ???
                                 : (stat_[word_id].item_[0].top_);
       doc.assignment_.push_back(most_probable_topic);
     }
 
     // Construct doc topic count on the fly
-    std::fill(RANGE(doc_topic_count), 0);
+    std::fill(RANGE(doc_topic_count), 0); // N_dt
     for (const auto topic : doc.assignment_) ++doc_topic_count[topic];
 
     // Perform Gibbs sampling to obtain an estimate of theta
-    for (int iter = 1; iter <= EVAL_ITER; ++iter) {
+    for (int iter = 1; iter <= EVAL_ITER; ++iter) { 
       for (size_t n = 0; n < doc.token_.size(); ++n) {
         // Localize
         int old_topic = doc.assignment_[n];
-        const auto& phi_w = phi[doc.token_[n]];
+        const auto& phi_w = phi[doc.token_[n]]; // N_wt + beta / N_k + V*beta
         // Decrement
-        --doc_topic_count[old_topic];
+        --doc_topic_count[old_topic]; // -- N_dt
         // Compute prob
         std::fill(RANGE(prob), .0);
         for (int k = 0; k < FLAGS_num_topic; ++k) {
@@ -308,12 +308,12 @@ void Trainer1::PrintPerplexity() {
         ++doc_topic_count[new_topic];
         // Set
         doc.assignment_[n] = new_topic;
-      } // end of for each n
+      } // end of for each n // end of each token in one test text 
     } // end of iter
 
-    // Compute theta
+    // Compute theta // ??? the equation for computing theta in that paper 
     std::fill(RANGE(theta), .0);
-    double theta_denom = doc.token_.size() + FLAGS_alpha * FLAGS_num_topic;
+    double theta_denom = doc.token_.size() + FLAGS_alpha * FLAGS_num_topic; // 
     for (int k = 0; k < FLAGS_num_topic; ++k) {
       theta[k] = (doc_topic_count[k] + FLAGS_alpha) / theta_denom;
     }

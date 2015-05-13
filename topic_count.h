@@ -12,7 +12,7 @@ struct Pair {
 
 struct TopicCount {
 public:
-  std::vector<Pair> item_;
+  std::vector<Pair> item_; // N_w=w£¬t
 
 public:
   TopicCount() = default;
