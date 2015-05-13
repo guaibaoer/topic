@@ -51,6 +51,7 @@ void Trainer::Train() {
 }
 
 // -------------------------------------------------------------------------- //
+// Github Test
 
 void Trainer1::ReadData(std::string data_file) { // Note on Datasets Format 
   size_t num_token = 0;
