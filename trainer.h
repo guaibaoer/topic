@@ -27,7 +27,7 @@ protected:
   //   train = word (i.e., inverted index), stat = doc-topic count
   // in either case, test represents test documents
   std::vector<Sample> train_, test_;
-  std::vector<TopicCount> stat_; // N_wt
+  std::vector<TopicCount> stat_; // N_wt , stat = word-topic count
   std::vector<int> summary_; // N_t
   Dict  dict_;
   Timer timer_;

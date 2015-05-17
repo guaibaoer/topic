@@ -17,9 +17,9 @@ DEFINE_int32(eval_every, 1, "Evaluate the model every N iterations");
 void Trainer::Train() {
   // Init
   timer_.tic();
-  summary_.resize(FLAGS_num_topic);
-  for (auto& sample : train_) {
-    for (const auto idx : sample.token_) {
+  summary_.resize(FLAGS_num_topic); // summary_ , N_t ; FLAGS_num_topic , T ; 
+  for (auto& sample : train_) { // train_ , D ; sample , d ;
+    for (const auto idx : sample.token_) { // sample , d ;
       int rand_topic = _unif01(_rng) * FLAGS_num_topic;
       sample.assignment_.push_back(rand_topic);
       stat_[idx].AddCount(rand_topic);
@@ -51,6 +51,7 @@ void Trainer::Train() {
 }
 
 // -------------------------------------------------------------------------- //
+// Github Test
 
 void Trainer1::ReadData(std::string data_file) { // Note on Datasets Format 
   size_t num_token = 0;
@@ -77,7 +78,7 @@ void Trainer1::ReadData(std::string data_file) { // Note on Datasets Format
 
   // Separate test set from training set
   std::shuffle(RANGE(train_), _rng);
-  CHECK_LT(FLAGS_test_ratio, 1.0);
+  CHECK_LT(FLAGS_test_ratio, 1.0); // ?? 
   int test_size = (int)(train_.size() * FLAGS_test_ratio);
   test_.assign(train_.end() - test_size, train_.end());
   train_.resize(train_.size() - test_size);
@@ -97,7 +98,7 @@ void Trainer1::TrainOneSample(Sample& doc) {
   // Too much allocation, but I believe in tcmalloc...
   // Construct doc topic count on the fly to save memory
   std::vector<int> doc_topic_count(FLAGS_num_topic, 0);
-  for (const auto topic : doc.assignment_) ++doc_topic_count[topic];
+  for (const auto topic : doc.assignment_) ++doc_topic_count[topic]; // N_dt 
 
   // Compute per doc cached values
   // Abar and Ccoeff can be computed outside, but it's not elegant :P
@@ -105,16 +106,16 @@ void Trainer1::TrainOneSample(Sample& doc) {
   double Bbar = .0;
   std::vector<double> Ccoeff(FLAGS_num_topic, .0);
   std::list<int> doc_topic_index; // exploit sparsity and get O(1) insert/erase
-  for (int k = 0; k < FLAGS_num_topic; ++k) {
-    double denom = summary_[k] + beta_sum;
-    Abar += alpha_beta / denom;
+  for (int k = 0; k < FLAGS_num_topic; ++k) { // For topic t
+    double denom = summary_[k] + beta_sum; // N_t + beta*W
+    Abar += alpha_beta / denom; // Abar, Summation for t: alpha*beta / N_t + beta*W
     int count = doc_topic_count[k];
-    if (count != 0) {
+    if (count != 0) { // For Nonzero N_dt topic t
       doc_topic_index.push_back(k);
-      Bbar += FLAGS_beta * count / denom;
-      Ccoeff[k] = (FLAGS_alpha + count) / denom;
+      Bbar += FLAGS_beta * count / denom; // Bbar, Summation for t: beta*N_dt / N_t + beta*W
+      Ccoeff[k] = (FLAGS_alpha + count) / denom;// Ccoeff[k]: alpha+N_dt / N_t + beta*W
     } else {
-      Ccoeff[k] = FLAGS_alpha / denom;
+      Ccoeff[k] = FLAGS_alpha / denom;// Ccoeff[k]: alpha / N_t + beta*W
     }
   } // end of preparation
 
@@ -125,7 +126,8 @@ void Trainer1::TrainOneSample(Sample& doc) {
     int old_topic = doc.assignment_[n];
     auto& word = stat_[doc.token_[n]];
 
-    // Decrement
+    // Decrement 
+    // Update Abar, Bbar
     double denom = summary_[old_topic] + beta_sum;
     int count = doc_topic_count[old_topic];
     Abar -= alpha_beta / denom;
@@ -143,16 +145,21 @@ void Trainer1::TrainOneSample(Sample& doc) {
     Ccoeff[old_topic] = (FLAGS_alpha + count) / denom;
 
     // Taking advantage of sparsity
+    // Update Cbar, Cval
+    // Refine with Caching Cbar Buckets 
     double Cbar = .0;
     for (size_t i = 0; i < word.item_.size(); ++i) {
       auto pair = word.item_[i];
       auto cnt = (pair.top_ == old_topic) ? pair.cnt_ - 1 : pair.cnt_;
-      double val = Ccoeff[pair.top_] * cnt;
+      double val = Ccoeff[pair.top_] * cnt; 
+      // Ccoeff[k]: alpha + N_dt(Nonezero) / N_t + beta*W 
+      // cnt: N_wt(Nonezero)
       Cval[i] = val;
       Cbar += val;
     }
 
     // Sample
+    // Refine with Binary Search Method in Three Buckets 
     double sample = _unif01(_rng) * (Abar + Bbar + Cbar);
     int new_topic = -1;
     if (sample < Cbar) {
@@ -193,7 +200,7 @@ void Trainer1::TrainOneSample(Sample& doc) {
     ++doc_topic_count[new_topic];
     ++count;
     if (count == 1) { // augment index
-      auto pos = std::lower_bound(RANGE(doc_topic_index), new_topic);
+      auto pos = std::lower_bound(RANGE(doc_topic_index), new_topic); // Pos ??
       doc_topic_index.insert(pos, new_topic);
     }
     ++summary_[new_topic];
@@ -204,7 +211,7 @@ void Trainer1::TrainOneSample(Sample& doc) {
 
     // Set
     doc.assignment_[n] = new_topic;
-    word.UpdateCount(old_topic, new_topic);
+    word.UpdateCount(old_topic, new_topic); // Update ?? How ??
   } // end of iter over tokens
 }
 
